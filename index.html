@@ -745,27 +745,12 @@
             });
         }
 
-        // 從 Google Sheet 讀取數據
+        // 從 Google Sheet 讀取數據（通過後端 API）
         async function loadDataFromGoogleSheet() {
             try {
-                const sheetId = CONFIG.SHEET_ID;
-                const apiKey = CONFIG.SHEETS_API_KEY;
+                console.log('📝 使用後端 API 讀取 Google Sheet...');
 
-                console.log('📝 配置檢查:', {
-                    sheetId: sheetId ? '✅ 有值' : '❌ 缺失',
-                    apiKey: apiKey ? '✅ 有值' : '❌ 缺失'
-                });
-
-                if (!sheetId || !apiKey || sheetId.includes('YOUR_') || apiKey.includes('YOUR_')) {
-                    console.error('❌ 配置不完整:', { sheetId, apiKey });
-                    showError('⚠️ 請配置 Google Sheet ID 和 API Key');
-                    return;
-                }
-
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/面試追蹤?key=${apiKey}`;
-                console.log('🌐 API 請求 URL:', url.substring(0, 80) + '...');
-
-                const response = await fetch(url);
+                const response = await fetch('/api/sheets');
                 console.log('📡 API 回應狀態:', response.status);
 
                 if (!response.ok) {
@@ -775,9 +760,9 @@
                 const data = await response.json();
                 console.log('📦 收到數據:', data);
 
-                if (data.values) {
-                    const headers = data.values[0];
-                    allData = data.values.slice(1).map(row => {
+                if (Array.isArray(data) && data.length > 0) {
+                    const headers = data[0];
+                    allData = data.slice(1).map(row => {
                         const obj = {};
                         headers.forEach((header, index) => {
                             obj[header] = row[index] || '';
