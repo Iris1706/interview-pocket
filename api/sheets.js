@@ -94,9 +94,9 @@ async function getSheetData(sheetId, accessToken) {
 
 export default async function handler(req, res) {
   try {
-    const clientEmail = process.env.CLIENT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const clientEmail = process.env.CLIENT_EMAIL || 'interview-pocket@interview-pocket.iam.gserviceaccount.com';
+    const privateKey = (process.env.GOOGLE_PRIVATE_KEY || process.env.SHEETS_API_KEY).replace(/\\n/g, '\n');
+    const sheetId = process.env.GOOGLE_SHEET_ID || process.env.SHEET_ID;
 
     const accessToken = await getAccessToken(clientEmail, privateKey);
     const sheetData = await getSheetData(sheetId, accessToken);
