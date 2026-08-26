@@ -429,8 +429,7 @@
             }
         }
     </style>
-    <!-- 配置檔案（從 config.js 引入） -->
-    <script src="config.js"></script>
+    <!-- 配置將從 API 端點載入 -->
 </head>
 <body>
     <div class="container">
@@ -683,24 +682,45 @@
     </div>
 
     <script>
-        // 配置會從 config.js 引入（見下方）
-        // 如果 CONFIG 未定義，使用默認值（提示用戶配置）
-        if (typeof CONFIG === 'undefined') {
-            var CONFIG = {
-                APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzM_j_cxfxXqAbi9yZD0mRzjTr0tbArWZX9tUtEhgWX/dev',
-                SHEETS_API_KEY: 'YOUR_SHEETS_API_KEY',
-                SHEET_ID: 'YOUR_SHEET_ID'
-            };
-        }
+        // 配置會從 API 端點載入
+        let CONFIG = {
+            APPS_SCRIPT_URL: '',
+            SHEETS_API_KEY: '',
+            SHEET_ID: ''
+        };
 
         let allData = [];
         let currentEditIndex = -1;
 
+        // 從 API 端點載入配置
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const data = await response.json();
+                    CONFIG = data;
+                    console.log('✅ Config loaded from /api/config:', {
+                        hasSheetId: !!CONFIG.SHEET_ID,
+                        hasApiKey: !!CONFIG.SHEETS_API_KEY,
+                        hasAppsScript: !!CONFIG.APPS_SCRIPT_URL
+                    });
+                } else {
+                    console.error('❌ Failed to load config from /api/config:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ Error loading config from /api/config:', error);
+            }
+        }
+
         // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 頁面初始化開始...');
+            await loadConfig();
+            console.log('📋 當前配置:', CONFIG);
             setupTabs();
             setupFormSubmit();
-            loadDataFromGoogleSheet();
+            console.log('⏳ 開始讀取 Google Sheet...');
+            await loadDataFromGoogleSheet();
             updateStats();
         });
 
@@ -728,17 +748,32 @@
         // 從 Google Sheet 讀取數據
         async function loadDataFromGoogleSheet() {
             try {
-                const sheetId = CONFIG.SHEET_ID || getEnvironmentVariable('SHEET_ID');
-                const apiKey = CONFIG.SHEETS_API_KEY || getEnvironmentVariable('SHEETS_API_KEY');
+                const sheetId = CONFIG.SHEET_ID;
+                const apiKey = CONFIG.SHEETS_API_KEY;
 
-                if (!sheetId || sheetId === 'YOUR_SHEET_ID') {
+                console.log('📝 配置檢查:', {
+                    sheetId: sheetId ? '✅ 有值' : '❌ 缺失',
+                    apiKey: apiKey ? '✅ 有值' : '❌ 缺失'
+                });
+
+                if (!sheetId || !apiKey || sheetId.includes('YOUR_') || apiKey.includes('YOUR_')) {
+                    console.error('❌ 配置不完整:', { sheetId, apiKey });
                     showError('⚠️ 請配置 Google Sheet ID 和 API Key');
                     return;
                 }
 
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/面試追蹤?key=${apiKey}`;
+                console.log('🌐 API 請求 URL:', url.substring(0, 80) + '...');
+
                 const response = await fetch(url);
+                console.log('📡 API 回應狀態:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
                 const data = await response.json();
+                console.log('📦 收到數據:', data);
 
                 if (data.values) {
                     const headers = data.values[0];
@@ -749,12 +784,16 @@
                         });
                         return obj;
                     });
+                    console.log('✅ 成功讀取', allData.length, '條記錄');
                     displayTable(allData);
                     updateStats();
+                } else {
+                    console.warn('⚠️ 無數據或格式異常');
+                    showError('Sheet 中暫無數據');
                 }
             } catch (error) {
-                console.error('讀取 Google Sheet 失敗：', error);
-                showError('無法連接 Google Sheet，請檢查配置和網路連線');
+                console.error('❌ 讀取 Google Sheet 失敗：', error);
+                showError('❌ 無法連接 Google Sheet，請檢查配置和網路連線 (詳見 Console)');
             }
         }
 
@@ -936,11 +975,24 @@
         }
 
         function showError(message) {
+            // 在儀表板顯示錯誤
+            const statsContainer = document.getElementById('stats');
+            if (statsContainer) {
+                statsContainer.innerHTML = `<div class="error" style="grid-column: 1 / -1; width: 100%;">${message}</div>`;
+            }
+
+            // 在表單區域也顯示錯誤
             const msg = document.getElementById('formMessage') || document.createElement('div');
             msg.innerHTML = `<div class="error">${message}</div>`;
             if (!document.getElementById('formMessage')) {
-                document.querySelector('.main-content').insertBefore(msg, document.querySelector('.tabs'));
-                msg.id = 'formMessage';
+                const formSection = document.querySelector('#add .form-section');
+                if (formSection) {
+                    formSection.insertBefore(msg, formSection.firstChild);
+                    msg.id = 'formMessage';
+                } else {
+                    document.querySelector('.main-content').insertBefore(msg, document.querySelector('.tabs'));
+                    msg.id = 'formMessage';
+                }
             }
         }
 
