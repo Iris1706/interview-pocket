@@ -1,0 +1,17 @@
+{
+  "name": "interview-tracking",
+  "version": "1.0.0",
+  "description": "面試追蹤系統 - 記錄、追蹤和分析面試進度",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "deploy": "git push origin main"
+  },
+  "keywords": [
+    "interview",
+    "tracking",
+    "job-search",
+    "google-sheets"
+  ],
+  "author": "Iris",
+  "license": "MIT"
+}
